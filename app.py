@@ -1,3 +1,13 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", 5433))
+DB_NAME = os.getenv("DB_NAME", "realestate_db")
+DB_USER = os.getenv("DB_USER", "realestate")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "realestate")
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -65,11 +75,11 @@ def get_group(region):
 
 def get_conn():
     return psycopg2.connect(
-        host="localhost",
-        port=5433,
-        dbname="realestate_db",
-        user="realestate",
-        password="realestate"
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
     )
 
 @st.cache_data
@@ -77,7 +87,6 @@ def load_mart_data():
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM dbt_realestate_mart.mart_price_dashboard", conn)
     conn.close()
-    # 만원 → 억 변환
     for col in ["avg_trade_price", "min_trade_price", "max_trade_price", "avg_jeonse_price"]:
         if col in df.columns:
             df[col] = df[col] / 10000
@@ -110,6 +119,8 @@ raw["sido"] = raw["region_name"].apply(get_sido)
 raw["group"] = raw["region_name"].apply(get_group)
 raw["deal_year"] = pd.to_numeric(raw["deal_year"], errors="coerce")
 raw["deal_month"] = pd.to_numeric(raw["deal_month"], errors="coerce")
+raw["build_year"] = pd.to_numeric(raw["build_year"], errors="coerce")
+raw["area_sqm"] = pd.to_numeric(raw["area_sqm"], errors="coerce")
 
 # ── 사이드바 필터 ──
 st.sidebar.title("🔍 필터")
@@ -166,6 +177,17 @@ if selected_region != "전체":
     raw_filtered = raw_filtered[raw_filtered["region_name"] == selected_region]
 if selected_size != "전체":
     filtered = filtered[filtered["size_category"] == selected_size]
+    size_ranges = {
+        "small": (0, 60),
+        "medium": (60, 85),
+        "large": (85, 135),
+        "extra_large": (135, 9999)
+    }
+    min_sqm, max_sqm = size_ranges[selected_size]
+    raw_filtered = raw_filtered[
+        (raw_filtered["area_sqm"] >= min_sqm) &
+        (raw_filtered["area_sqm"] < max_sqm)
+    ]
 
 # ── KPI 카드 ──
 col1, col2, col3, col4 = st.columns(4)
@@ -183,61 +205,47 @@ with col4:
 
 st.divider()
 
-# ── 차트 ──
-col_left, col_right = st.columns(2)
-
-with col_left:
-    if selected_region != "전체":
-        sido = get_sido(selected_region)
-        grp = get_group(selected_region)
-        if grp:
-            compare_df = df[df["group"] == grp].groupby("region_name")["avg_trade_price"].mean().reset_index()
-            title = f"📊 {grp} 내 구별 평균 매매가 비교 (억원)"
-        else:
-            compare_df = df[df["sido"] == sido].groupby("region_name")["avg_trade_price"].mean().reset_index()
-            title = f"📊 {sido} 내 구별 평균 매매가 비교 (억원)"
-        compare_df = compare_df.sort_values("avg_trade_price", ascending=True)
-        compare_df["색상"] = compare_df["region_name"].apply(
-            lambda x: "선택" if x == selected_region else "비교"
-        )
-        st.subheader(title)
-        fig1 = px.bar(
-            compare_df, x="avg_trade_price", y="region_name", orientation="h",
-            color="색상",
-            color_discrete_map={"선택": "#08519C", "비교": "#B8D8E8"},
-            labels={"avg_trade_price": "평균 매매가(억원)", "region_name": "지역"}
-        )
-        fig1.update_layout(height=500, showlegend=False)
+# ── 1행: 지역별 평균 매매가 (전체 너비) ──
+if selected_region != "전체":
+    sido = get_sido(selected_region)
+    grp = get_group(selected_region)
+    if grp:
+        compare_df = df[df["group"] == grp].groupby("region_name")["avg_trade_price"].mean().reset_index()
+        title = f"📊 {grp} 내 구별 평균 매매가 비교 (억원)"
     else:
-        chart_df = filtered.groupby("region_name")["avg_trade_price"].mean().reset_index()
-        chart_df = chart_df.sort_values("avg_trade_price", ascending=True)
-        st.subheader("📊 지역별 평균 매매가 (억원)")
-        fig1 = px.bar(
-            chart_df, x="avg_trade_price", y="region_name", orientation="h",
-            color="avg_trade_price",
-            color_continuous_scale=[[0, "#B8D8E8"], [0.5, "#6BAED6"], [1, "#08519C"]],
-            labels={"avg_trade_price": "평균 매매가(억원)", "region_name": "지역"}
-        )
-        fig1.update_layout(height=500, showlegend=False)
-    st.plotly_chart(fig1, use_container_width=True)
-
-with col_right:
-    st.subheader("🍩 평형별 거래량 비중")
-    size_count = filtered.groupby("size_category")["trade_count"].sum().reset_index()
-    size_count["평형"] = size_count["size_category"].map(SIZE_MAP_DISPLAY)
-    fig2 = px.pie(
-        size_count, values="trade_count", names="평형",
-        hole=0.4,
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        compare_df = df[df["sido"] == sido].groupby("region_name")["avg_trade_price"].mean().reset_index()
+        title = f"📊 {sido} 내 구별 평균 매매가 비교 (억원)"
+    compare_df = compare_df.sort_values("avg_trade_price", ascending=True)
+    compare_df["색상"] = compare_df["region_name"].apply(
+        lambda x: "선택" if x == selected_region else "비교"
     )
-    fig2.update_layout(height=500)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.subheader(title)
+    fig1 = px.bar(
+        compare_df, x="avg_trade_price", y="region_name", orientation="h",
+        color="색상",
+        color_discrete_map={"선택": "#08519C", "비교": "#B8D8E8"},
+        labels={"avg_trade_price": "평균 매매가(억원)", "region_name": "지역"}
+    )
+    fig1.update_layout(height=400, showlegend=False)
+else:
+    chart_df = filtered.groupby("region_name")["avg_trade_price"].mean().reset_index()
+    chart_df = chart_df.sort_values("avg_trade_price", ascending=True)
+    st.subheader("📊 지역별 평균 매매가 (억원)")
+    fig1 = px.bar(
+        chart_df, x="avg_trade_price", y="region_name", orientation="h",
+        color="avg_trade_price",
+        color_continuous_scale=[[0, "#B8D8E8"], [0.5, "#6BAED6"], [1, "#08519C"]],
+        labels={"avg_trade_price": "평균 매매가(억원)", "region_name": "지역"}
+    )
+    fig1.update_layout(height=600, showlegend=False)
+st.plotly_chart(fig1, use_container_width=True)
 
 st.divider()
 
-col_left2, col_right2 = st.columns(2)
+# ── 2행: 전세가율 | 전세 vs 매매 | 건축년도별 매매가 ──
+col1, col2, col3 = st.columns(3)
 
-with col_left2:
+with col1:
     if selected_region != "전체":
         sido = get_sido(selected_region)
         grp = get_group(selected_region)
@@ -252,47 +260,78 @@ with col_left2:
             lambda x: "선택" if x == selected_region else "비교"
         )
         st.subheader(title2)
-        fig3 = px.bar(
+        fig2 = px.bar(
             compare_df2, x="jeonse_ratio", y="region_name", orientation="h",
             color="색상",
             color_discrete_map={"선택": "#006D2C", "비교": "#C7E9C0"},
             labels={"jeonse_ratio": "전세가율(%)", "region_name": "지역"}
         )
-        fig3.update_layout(height=500, showlegend=False)
+        fig2.update_layout(height=500, showlegend=False)
     else:
         jeonse_df = filtered.groupby("region_name")["jeonse_ratio"].mean().reset_index()
         jeonse_df = jeonse_df.sort_values("jeonse_ratio", ascending=True)
         st.subheader("📊 지역별 전세가율 (%)")
-        fig3 = px.bar(
+        fig2 = px.bar(
             jeonse_df, x="jeonse_ratio", y="region_name", orientation="h",
             color="jeonse_ratio",
             color_continuous_scale=[[0, "#C7E9C0"], [0.5, "#74C476"], [1, "#006D2C"]],
             labels={"jeonse_ratio": "전세가율(%)", "region_name": "지역"}
         )
-        fig3.update_layout(height=500, showlegend=False)
+        fig2.update_layout(height=500, showlegend=False)
+    st.plotly_chart(fig2, use_container_width=True)
+
+with col2:
+    st.subheader("📊 전세 vs 매매 평균가 (억원)")
+    if selected_region != "전체":
+        compare_target = df[df["region_name"] == selected_region]
+    elif selected_group != "전체":
+        compare_target = df[df["group"] == selected_group]
+    elif selected_sido != "전체":
+        compare_target = df[df["sido"] == selected_sido]
+    else:
+        compare_target = df.copy()
+    if selected_size != "전체":
+        compare_target = compare_target[compare_target["size_category"] == selected_size]
+
+    avg_trade = compare_target["avg_trade_price"].mean()
+    avg_jeonse = compare_target["avg_jeonse_price"].mean()
+
+    compare_bar = pd.DataFrame({
+        "구분": ["평균 매매가", "평균 전세가"],
+        "금액(억원)": [
+            round(avg_trade, 2) if pd.notna(avg_trade) else 0,
+            round(avg_jeonse, 2) if pd.notna(avg_jeonse) else 0
+        ]
+    })
+    fig3 = px.bar(
+        compare_bar, x="구분", y="금액(억원)",
+        color="구분",
+        color_discrete_map={"평균 매매가": "#08519C", "평균 전세가": "#74C476"},
+        text="금액(억원)",
+        labels={"금액(억원)": "금액 (억원)"}
+    )
+    fig3.update_traces(texttemplate="%{text:.2f}억", textposition="outside")
+    fig3.update_layout(height=500, showlegend=False)
     st.plotly_chart(fig3, use_container_width=True)
 
-with col_right2:
-    st.subheader("📊 매매가 분포 (억원)")
-    hist_data = raw_filtered.copy()
-    hist_data = hist_data.dropna(subset=["deal_amount"])
-    if not hist_data.empty:
-        fig4 = px.histogram(
-            hist_data,
-            x="deal_amount",
-            nbins=30,
-            color_discrete_sequence=["#6BAED6"],
-            labels={"deal_amount": "매매가(억원)", "count": "거래건수"},
-        )
-        fig4.update_layout(
-            height=500,
-            bargap=0.05,
-            xaxis_title="매매가 (억원)",
-            yaxis_title="거래 건수"
-        )
-        st.plotly_chart(fig4, use_container_width=True)
-    else:
-        st.info("선택한 조건에 해당하는 매매 데이터가 없습니다.")
+with col3:
+    st.subheader("📊 건축년도별 평균 매매가 (억원)")
+    build_data = raw_filtered.copy()
+    build_data = build_data.dropna(subset=["build_year", "deal_amount"])
+    build_data["build_year"] = build_data["build_year"].astype(int)
+    build_df = build_data.groupby("build_year")["deal_amount"].mean().reset_index()
+    build_df.columns = ["건축년도", "평균 매매가(억원)"]
+    build_df = build_df.sort_values("건축년도")
+    fig4 = px.bar(
+        build_df,
+        x="건축년도",
+        y="평균 매매가(억원)",
+        color="평균 매매가(억원)",
+        color_continuous_scale=[[0, "#B8D8E8"], [0.5, "#6BAED6"], [1, "#08519C"]],
+        labels={"건축년도": "건축년도", "평균 매매가(억원)": "평균 매매가 (억원)"}
+    )
+    fig4.update_layout(height=500, showlegend=False)
+    st.plotly_chart(fig4, use_container_width=True)
 
 st.divider()
 

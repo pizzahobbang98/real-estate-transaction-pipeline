@@ -1,37 +1,35 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 
+SERVICE_KEY = os.getenv("MOLIT_API_KEY")
 import requests
 import pandas as pd
 import time
+import xml.etree.ElementTree as ET
 from sigungu_codes import SIGUNGU_CODES
 from tqdm import tqdm
 
-SERVICE_KEY = "95ebf59ae83e2d42fb7ce7793694c25418da5c100a62261d290640999660094c"
+
 
 TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
 RENT_URL  = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent"
-
-import xml.etree.ElementTree as ET
 
 def fetch_one(url, lawd_cd, deal_ymd):
     results = []
     page = 1
     while True:
-        params = f"?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=1000&pageNo={page}"
+        full_url = f"{url}?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=1000&pageNo={page}"
         try:
-            res = requests.get(url + params, timeout=10)
+            res = requests.get(full_url, timeout=10)
             root = ET.fromstring(res.text)
-            
             items = root.findall(".//item")
             if not items:
                 break
-            
             for item in items:
-                d = {child.tag: child.text for child in item}
-                results.append(d)
-            
+                results.append({child.tag: (child.text or "").strip() for child in item})
             total_count = root.findtext(".//totalCount")
             if not total_count or len(results) >= int(total_count):
                 break
@@ -44,7 +42,6 @@ def fetch_one(url, lawd_cd, deal_ymd):
 def fetch_period(start_year, start_month, end_year, end_month):
     all_records = []
 
-    # 연월 리스트 생성
     periods = []
     y, m = start_year, start_month
     while (y < end_year) or (y == end_year and m <= end_month):
@@ -61,7 +58,6 @@ def fetch_period(start_year, start_month, end_year, end_month):
     print(f"총 작업: {len(periods)}개월 × {len(sigungu_list)}개 시군구 = {total_tasks:,}건 API 호출")
     print("=" * 60)
 
-    # 전체 진행바
     with tqdm(total=total_tasks, desc="전체 진행", unit="건",
               bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]") as pbar:
 
@@ -69,14 +65,13 @@ def fetch_period(start_year, start_month, end_year, end_month):
             period_trade = 0
             period_rent = 0
 
-            # 연월별 진행바
             for region_name, lawd_cd in sigungu_list:
 
                 # 매매 수집
                 trade_items = fetch_one(TRADE_URL, lawd_cd, deal_ymd)
                 for item in trade_items:
-                    cancel = item.get("cdealType", "") or item.get("cancelDealType", "")
-                    if cancel and cancel.strip() not in ["", "NaN"]:
+                    cancel = item.get("cdealType", "")
+                    if cancel and cancel not in ["", "NaN"]:
                         continue
                     all_records.append({
                         "region_name": region_name,
@@ -85,7 +80,7 @@ def fetch_period(start_year, start_month, end_year, end_month):
                         "deal_ymd": deal_ymd,
                         "apt_name": item.get("aptNm", ""),
                         "umd_nm": item.get("umdNm", ""),
-                        "deal_amount": str(item.get("dealAmount", "")).replace(",", "").strip(),
+                        "deal_amount": item.get("dealAmount", "").replace(",", ""),
                         "deposit": None,
                         "monthly_rent": None,
                         "area_sqm": item.get("excluUseAr", ""),
@@ -110,13 +105,13 @@ def fetch_period(start_year, start_month, end_year, end_month):
                         "apt_name": item.get("aptNm", ""),
                         "umd_nm": item.get("umdNm", ""),
                         "deal_amount": None,
-                        "deposit": str(item.get("deposit", "")).replace(",", "").strip(),
-                        "monthly_rent": str(item.get("monthlyRent", "")).replace(",", "").strip(),
+                        "deposit": item.get("deposit", "").replace(",", ""),
+                        "monthly_rent": item.get("monthlyRent", "").replace(",", ""),
                         "area_sqm": item.get("excluUseAr", ""),
                         "floor": item.get("floor", ""),
                         "build_year": item.get("buildYear", ""),
-                        "deal_month": item.get("dealMonth", ""),
                         "deal_year": item.get("dealYear", ""),
+                        "deal_month": item.get("dealMonth", ""),
                         "deal_day": item.get("dealDay", ""),
                         "dealing_gbn": None,
                         "cancel_deal": None,
@@ -131,7 +126,7 @@ def fetch_period(start_year, start_month, end_year, end_month):
                 pbar.update(1)
                 time.sleep(0.05)
 
-            # 연월 완료 시 중간 저장
+            # 연월별 중간 저장
             df = pd.DataFrame(all_records)
             df.to_csv(f"output_history_{deal_ymd}.csv", index=False, encoding="utf-8-sig")
             tqdm.write(f"✅ [{deal_ymd}] 완료 - 매매:{period_trade:,} 전월세:{period_rent:,} / 누적:{len(all_records):,}건")

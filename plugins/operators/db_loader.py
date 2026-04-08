@@ -4,21 +4,26 @@ import psycopg2
 from psycopg2.extras import execute_values
 import logging
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", 5433))
+DB_NAME = os.getenv("DB_NAME", "realestate_db")
+DB_USER = os.getenv("DB_USER", "realestate")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "realestate")
+
 logger = logging.getLogger(__name__)
 
 
 def get_conn():
-   
-    host = os.getenv("DB_HOST", "localhost")
-    port = int(os.getenv("DB_PORT", 5433))
     return psycopg2.connect(
-        host=host,
-        port=port,
-        dbname="realestate_db",
-        user="realestate",
-        password="realestate"
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
     )
-
 def load_csv_to_db(csv_path: str):
     df = pd.read_csv(csv_path, encoding="utf-8-sig")
 
@@ -88,5 +93,5 @@ def load_csv_to_db(csv_path: str):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    load_csv_to_db("output_202501.csv")
+    load_csv_to_db("output_history_202603.csv")
     print("적재 완료!")

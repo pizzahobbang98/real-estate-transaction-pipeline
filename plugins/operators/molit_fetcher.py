@@ -10,6 +10,10 @@ from sigungu_codes import SIGUNGU_CODES
 # 로그 설정 (Airflow에서도 같은 방식으로 출력됨)
 logger = logging.getLogger(__name__)
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
+
+SERVICE_KEY = os.getenv("MOLIT_API_KEY")
 # ────────────────────────────────────────
 # 수집할 시군구 코드 목록
 # 필요한 지역 추가/제거 가능
@@ -172,7 +176,7 @@ def fetch_all(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    SERVICE_KEY = "95ebf59ae83e2d42fb7ce7793694c25418da5c100a62261d290640999660094c"
+    
 
     df = fetch_all(SERVICE_KEY, deal_ymd="202501")
 
