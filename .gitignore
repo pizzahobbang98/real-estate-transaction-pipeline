@@ -1,0 +1,21 @@
+# 환경변수
+.env
+
+# 데이터 파일
+output_*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# dbt
+realestate_dbt/target/
+realestate_dbt/dbt_packages/
+realestate_dbt/logs/
+
+# Airflow
+logs/
+
+# 기타
+.DS_Store

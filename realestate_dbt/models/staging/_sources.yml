@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: raw
+    database: realestate_db
+    schema: public
+    tables:
+      - name: apt_trade
+        description: "Apartment trade transaction data from MOLIT"
+        columns:
+          - name: id
+            description: "Auto increment primary key"
+          - name: lawd_cd
+            description: "District code (5 digits)"
+          - name: deal_ymd
+            description: "Contract year-month (e.g. 202501)"
+          - name: apt_name
+            description: "Apartment name"
+          - name: deal_amount
+            description: "Trade price (unit: 10,000 KRW)"
+          - name: area_sqm
+            description: "Exclusive use area (sqm)"
+          - name: cancel_deal
+            description: "Cancellation status"
+
+      - name: apt_rent
+        description: "Apartment rent transaction data from MOLIT"
+        columns:
+          - name: id
+            description: "Auto increment primary key"
+          - name: lawd_cd
+            description: "District code (5 digits)"
+          - name: deal_ymd
+            description: "Contract year-month"
+          - name: deposit
+            description: "Deposit amount (unit: 10,000 KRW)"
+          - name: monthly_rent
+            description: "Monthly rent (unit: 10,000 KRW, 0 if jeonse)"

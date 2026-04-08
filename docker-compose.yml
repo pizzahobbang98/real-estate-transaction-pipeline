@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: realestate
+      POSTGRES_PASSWORD: realestate
+      POSTGRES_DB: realestate_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "realestate"]
+      interval: 5s
+      retries: 5
+
+  airflow-init:
+    image: apache/airflow:2.9.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://realestate:realestate@postgres/realestate_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      _PIP_ADDITIONAL_REQUIREMENTS: 'requests pandas psycopg2-binary'
+      DB_HOST: postgres
+      DB_PORT: 5432
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Jaehwan --lastname Kang --role Admin --email admin@realestate.com"
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://realestate:realestate@postgres/realestate_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      _PIP_ADDITIONAL_REQUIREMENTS: 'requests pandas psycopg2-binary'
+      DB_HOST: postgres
+      DB_PORT: 5432
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+    command: webserver
+    ports:
+      - "8081:8080"
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://realestate:realestate@postgres/realestate_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      _PIP_ADDITIONAL_REQUIREMENTS: 'requests pandas psycopg2-binary'
+      DB_HOST: postgres
+      DB_PORT: 5432
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+    command: scheduler
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: h2
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
+volumes:
+  postgres_data:
