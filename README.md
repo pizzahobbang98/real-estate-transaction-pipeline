@@ -42,23 +42,27 @@ Streamlit (시각화)
 ---
 
 ## 📂 프로젝트 구조
+```
 real-estate-transaction-pipeline/
 ├── dags/
 │   └── realestate_monthly.py
-├── plugins/operators/
-│   ├── molit_fetcher.py
-│   ├── db_loader.py
-│   ├── fetch_history.py
-│   └── sigungu_codes.py
+├── plugins/
+│   └── operators/
+│       ├── molit_fetcher.py
+│       ├── db_loader.py
+│       ├── fetch_history.py
+│       └── sigungu_codes.py
 ├── realestate_dbt/
-│   └── models/
-│       ├── staging/
-│       ├── intermediate/
-│       └── mart/
+│   ├── models/
+│   │   ├── staging/
+│   │   ├── intermediate/
+│   │   └── mart/
+│   └── dbt_project.yml
 ├── app.py
 ├── docker-compose.yml
-└── .env.example
-
+├── .env.example
+└── README.md
+```
 ---
 
 ## 📊 데이터 파이프라인
@@ -146,10 +150,11 @@ streamlit run app.py
 
 ## 📈 수집 데이터 규모
 
-- 수집 기간: 2023년 1월 ~ 현재 (매월 자동 갱신)
+- 수집 기간: 2023년 1월 ~ 2026년 3월 (매월 자동 갱신)
 - 대상 지역: 전국 227개 시군구
-- 매매 데이터: 약 XX만 건
-- 전월세 데이터: 약 XX만 건
+- 매매 데이터: 약 119만 건
+- 전월세 데이터: 약 333만 건
+- 총 데이터: 약 452만 건
 
 ---
 
