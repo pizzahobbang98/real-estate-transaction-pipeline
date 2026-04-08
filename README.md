@@ -1,4 +1,64 @@
-<<<<<<< HEAD
+# 🏠 부동산 실거래가 자동 수집 파이프라인
+
+국토교통부 실거래가 공공 API를 활용하여 전국 아파트 매매·전월세 데이터를
+자동으로 수집·변환·시각화하는 데이터 엔지니어링 파이프라인입니다.
+
+---
+
+## 📌 프로젝트 개요
+
+부동산 실거래가 데이터를 매월 자동으로 수집하고, 지역별·평형별 분석이 가능한
+대시보드를 제공합니다. 2023년 1월부터 현재까지의 전국 데이터를 다룹니다.
+
+---
+
+## 🏗️ 아키텍처
+국토교통부 API
+↓
+Python (수집)
+↓
+PostgreSQL (저장)
+↓
+Airflow (자동화, 매월 28일)
+↓
+dbt (변환)
+↓
+Streamlit (시각화)
+
+---
+
+## 🛠️ 기술 스택
+
+| 분류 | 기술 |
+|------|------|
+| 언어 | Python 3.11 |
+| 수집 | requests, xml.etree |
+| 저장 | PostgreSQL 16 |
+| 오케스트레이션 | Apache Airflow 2.9.1 |
+| 변환 | dbt-postgres 1.10.0 |
+| 시각화 | Streamlit, Plotly |
+| 인프라 | Docker, Docker Compose |
+
+---
+
+## 📂 프로젝트 구조
+real-estate-transaction-pipeline/
+├── dags/
+│   └── realestate_monthly.py
+├── plugins/operators/
+│   ├── molit_fetcher.py
+│   ├── db_loader.py
+│   ├── fetch_history.py
+│   └── sigungu_codes.py
+├── realestate_dbt/
+│   └── models/
+│       ├── staging/
+│       ├── intermediate/
+│       └── mart/
+├── app.py
+├── docker-compose.yml
+└── .env.example
+
 ---
 
 ## 📊 데이터 파이프라인
@@ -106,6 +166,3 @@ streamlit run app.py
 
 - **이름**: Kang Jaehwan
 - **GitHub**: [pizzahobbang98](https://github.com/pizzahobbang98)
-=======
-# real-estate-transaction-pipeline
->>>>>>> fe57554bba00fe237f8d025835b1bddaba82db5e
