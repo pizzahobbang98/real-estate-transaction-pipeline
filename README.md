@@ -175,5 +175,5 @@ streamlit run app.py
 
 ## 👤 개발자
 
-- **이름**: Kang Jaehwan
+- **이름**: Jaehwan Kang
 - **GitHub**: [pizzahobbang98](https://github.com/pizzahobbang98)
